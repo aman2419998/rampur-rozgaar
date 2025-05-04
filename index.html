@@ -78,7 +78,7 @@
                     </div>
                     <a href="contact.html" class="nav-item nav-link">Contact</a>
                 </div>
-                <a href="" class="btn btn-primary rounded-0 py-4 px-lg-5 d-none d-lg-block">Post A Job<i
+                <a href="page.html" class="btn btn-primary rounded-0 py-4 px-lg-5 d-none d-lg-block">Post A Job<i
                         class="fa fa-arrow-right ms-3"></i></a>
             </div>
         </nav>
@@ -102,7 +102,7 @@
                                     <a id="search" href="#search"
                                         class="btn btn-primary py-md-3 px-md-5 me-3 animated slideInLeft">Search A
                                         Job</a>
-                                    <a href="#post" class="btn btn-secondary py-md-3 px-md-5 animated slideInRight">Post
+                                    <a href="post.html" class="btn btn-secondary py-md-3 px-md-5 animated slideInRight">Post
                                         A Job</a>
                                 </div>
                             </div>
@@ -121,10 +121,10 @@
                                         Nayi Soch</h1>
                                     <p class="fs-5 fw-medium text-white mb-4 pb-2">Local jobs, asaani se dukandaron,
                                         startups, aur coaching centers ke liye perfect hiring solution.</p>
-                                    <a href="#jobs"
+                                    <a id="search" href="#search"
                                         class="btn btn-primary py-md-3 px-md-5 me-3 animated slideInLeft">Search A
                                         Job</a>
-                                    <a href="#post" class="btn btn-secondary py-md-3 px-md-5 animated slideInRight">Post
+                                    <a href="post.html" class="btn btn-secondary py-md-3 px-md-5 animated slideInRight">Post
                                         A Job</a>
                                 </div>
                             </div>
@@ -305,28 +305,8 @@
         <!-- Jobs Start -->
         <div class="container-xxl py-5">
             <div class="container">
-                <h1 class="text-center mb-5 wow fadeInUp" data-wow-delay="0.1s">Job Listing</h1>
+                <h1 class="text-center mb-5 wow fadeInUp" data-wow-delay="0.1s">Featured Jobs</h1>
                 <div class="tab-class text-center wow fadeInUp" data-wow-delay="0.3s">
-                    <ul class="nav nav-pills d-inline-flex justify-content-center border-bottom mb-5">
-                        <li class="nav-item">
-                            <a class="d-flex align-items-center text-start mx-3 ms-0 pb-3 active" data-bs-toggle="pill"
-                                href="#tab-1">
-                                <h6 class="mt-n1 mb-0">Featured</h6>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="d-flex align-items-center text-start mx-3 pb-3" data-bs-toggle="pill"
-                                href="#tab-2">
-                                <h6 class="mt-n1 mb-0">Full Time</h6>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="d-flex align-items-center text-start mx-3 me-0 pb-3" data-bs-toggle="pill"
-                                href="#tab-3">
-                                <h6 class="mt-n1 mb-0">Part Time</h6>
-                            </a>
-                        </li>
-                    </ul>
                     <div class="tab-content">
                         <div id="tab-1" class="tab-pane fade show p-0 active">
                             <div id="job-listings"></div>
@@ -467,9 +447,16 @@
     <script src="lib/waypoints/waypoints.min.js"></script>
     <script src="lib/owlcarousel/owl.carousel.min.js"></script>
 
+    <!-- Firebase v8 scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- job loader -->
+    <script src="js/loadFeaturedJobs.js"></script>
+
+
     <!-- Template Javascript -->
     <script src="js/main.js"></script>
-    <script src="js/jobs.js"></script>
 </body>
 
 </html>
