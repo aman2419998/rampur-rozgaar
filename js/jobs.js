@@ -11,15 +11,23 @@ const firebaseConfig = {
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+let recaptchaVerifier;
+
+window.addEventListener('load', () => {
+    recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible'
+    });
+});
+
 async function loadJobs(category = '', location = '', tabCategory = '') {
     const snapshot = await db.collection("jobs").get();
     const results = [];
 
     snapshot.forEach(doc => {
-        const job = doc.data();
+        const job = { id: doc.id, ...doc.data() };
         const catMatch = category ? job.category?.toLowerCase().includes(category.toLowerCase()) : true;
         const locMatch = location ? job.location?.toLowerCase().includes(location.toLowerCase()) : true;
-        const tabCategoryMatch = location ? job.type?.toLowerCase().includes(tabCategory.toLowerCase()) : true;
+        const tabCategoryMatch = tabCategory ? job.type?.toLowerCase().includes(tabCategory.toLowerCase()) : true;
 
         if (catMatch && locMatch && tabCategoryMatch) {
             results.push(job);
@@ -33,7 +41,16 @@ async function loadJobs(category = '', location = '', tabCategory = '') {
     }
     container.innerHTML = '';
 
+    const userPhone = localStorage.getItem("userPhone") || "";
+
     results.forEach(job => {
+        const docId = `${job.id}_${userPhone.replace('+91', '')}`;
+        const hasApplied = localStorage.getItem(`applied_${docId}`) === "true";
+
+        const applyBtnHtml = hasApplied
+            ? `<button class="btn btn-success" disabled>Applied</button>`
+            : `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+
         const jobHtml = `
           <div class="job-item p-4 mb-4">
               <div class="row g-4">
@@ -52,16 +69,18 @@ async function loadJobs(category = '', location = '', tabCategory = '') {
                           <a class="btn btn-light btn-square me-3" href="https://wa.me/${job.whatsapp}" target="_blank">
                               <i class="fab fa-whatsapp text-success"></i>
                           </a>
-                          <a class="btn btn-primary" href="https://wa.me/${job.whatsapp}" target="_blank">Apply Now</a>
+                          ${applyBtnHtml}
                       </div>
                       <small class="text-truncate"><i class="far fa-calendar-alt text-primary me-2"></i>Apply By: ${job.date_line}</small>
                   </div>
               </div>
           </div>
-      `;
+        `;
+
         container.innerHTML += jobHtml;
     });
 }
+
 
 async function loadFeaturedJobs() {
     const snapshot = await db.collection("jobs").where("featured", "==", true).get();
@@ -73,8 +92,17 @@ async function loadFeaturedJobs() {
     }
 
     container.innerHTML = '';
+    const userPhone = localStorage.getItem("userPhone") || "";
+
     snapshot.forEach(doc => {
-        const job = doc.data();
+        const job = { id: doc.id, ...doc.data() };
+        const docId = `${job.id}_${userPhone.replace('+91', '')}`;
+        const hasApplied = localStorage.getItem(`applied_${docId}`) === "true";
+
+        const applyBtnHtml = hasApplied
+            ? `<button class="btn btn-success" disabled>Applied</button>`
+            : `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+
         const jobHtml = `
           <div class="job-item p-4 mb-4">
               <div class="row g-4">
@@ -93,16 +121,17 @@ async function loadFeaturedJobs() {
                           <a class="btn btn-light btn-square me-3" href="https://wa.me/${job.whatsapp}" target="_blank">
                               <i class="fab fa-whatsapp text-success"></i>
                           </a>
-                          <a class="btn btn-primary" href="https://wa.me/${job.whatsapp}" target="_blank">Apply Now</a>
+                          ${applyBtnHtml}
                       </div>
                       <small class="text-truncate"><i class="far fa-calendar-alt text-primary me-2"></i>Apply By: ${job.date_line}</small>
                   </div>
               </div>
           </div>
-      `;
+        `;
         container.innerHTML += jobHtml;
     });
 }
+
 
 
 // Run on page load
@@ -203,3 +232,114 @@ async function seedAllCategoriesAndLocations() {
     console.log("🎉 All categories and locations seeded successfully.");
 }
 
+let applyPhone = null;
+let applyJobId = null;
+
+function checkAndApply(jobId, phone) {
+    const isVerified = localStorage.getItem("isPhoneVerified");
+    if (isVerified === "true") {
+        window.open(`https://wa.me/${phone}`, "_blank");
+    } else {
+        applyPhone = phone;
+        applyJobId = jobId;
+        const modal = new bootstrap.Modal(document.getElementById('otpModal'));
+        modal.show();
+    }
+}
+
+function sendOTP() {
+    const number = "+91" + document.getElementById("phoneInput").value;
+
+    if (!recaptchaVerifier) {
+        alert("Recaptcha not ready. Please refresh the page.");
+        return;
+    }
+
+    firebase.auth().signInWithPhoneNumber(number, recaptchaVerifier)
+        .then((confirmationResult) => {
+            window.confirmationResult = confirmationResult;
+            alert("OTP sent to " + number);
+        })
+        .catch((error) => {
+            alert("Error: " + error.message);
+        });
+}
+
+function verifyOTP() {
+    const code = document.getElementById("otpInput").value;
+
+    if (!window.confirmationResult) {
+        alert("OTP not sent yet. Please enter your phone and click 'Send OTP' first.");
+        return;
+    }
+
+    window.confirmationResult.confirm(code).then(async (result) => {
+        const userPhone = result.user.phoneNumber;
+        localStorage.setItem("isPhoneVerified", "true");
+        localStorage.setItem("userPhone", userPhone);
+        alert("📲 Phone verified!");
+
+        // Hide OTP modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
+        modal.hide();
+
+        if (applyPhone && applyJobId) {
+            const applicationDocId = `${applyJobId}_${userPhone.replace('+91', '')}`;
+
+            const applicationRef = db.collection("job_applications").doc(applicationDocId);
+
+            try {
+                // 🔍 Check if this user already applied for this job
+                const docSnapshot = await applicationRef.get();
+
+                if (docSnapshot.exists) {
+                    alert("⚠️ You have already applied for this job.");
+                    return;
+                }
+
+                // ✅ Create user doc if not exists
+                await db.collection("users").doc(userPhone).set({
+                    phone: userPhone
+                }, { merge: true });
+
+                // ✅ Save the application
+                await applicationRef.set({
+                    jobId: applyJobId,
+                    phone: userPhone,
+                    appliedTo: applyPhone,
+                    appliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: "scheduled"
+                });
+
+                // ✅ Optionally update job doc (track currently interviewing)
+                await db.collection("jobs").doc(applyJobId).update({
+                    currentlyInterviewing: firebase.firestore.FieldValue.arrayUnion(userPhone)
+                });
+
+                localStorage.setItem(`applied_${applicationDocId}`, "true");
+
+                alert("✅ Application submitted successfully!");
+
+                // 🔗 Open WhatsApp link
+                window.open(`https://wa.me/${applyPhone}`, "_blank");
+
+            } catch (err) {
+                console.error("❌ Failed to save application:", err);
+                alert("Something went wrong. Please try again.");
+            }
+        }
+    }).catch((error) => {
+        console.error("❌ OTP verification failed:", error);
+        alert("Wrong OTP. Please try again.");
+    });
+}
+
+
+document.addEventListener('click', function (e) {
+    if (e.target && e.target.classList.contains('apply-now-btn')) {
+        e.preventDefault();
+        const jobId = e.target.getAttribute('data-id');
+        const phone = e.target.getAttribute('data-phone');
+        checkAndApply(jobId, phone);
+    }
+});

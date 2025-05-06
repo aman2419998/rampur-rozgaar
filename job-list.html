@@ -130,6 +130,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- ✅ OTP Verification Modal -->
+        <div class="modal fade" id="otpModal" tabindex="-1" aria-labelledby="otpModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="otpModalLabel">Verify Your Phone Number</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="recaptcha-container" class="mb-3"></div>
+                        <input type="text" id="phoneInput" class="form-control mb-3"
+                            placeholder="Enter your phone number">
+                        <button onclick="sendOTP()" class="btn btn-warning w-100 mb-3">Send OTP</button>
+
+                        <input type="text" id="otpInput" class="form-control mb-3" placeholder="Enter OTP">
+                        <button onclick="verifyOTP()" class="btn btn-success w-100">Verify & Continue</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Jobs End -->
 
 
@@ -218,6 +241,7 @@
 
     <!-- Firebase v8 scripts -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <!-- job loader -->
