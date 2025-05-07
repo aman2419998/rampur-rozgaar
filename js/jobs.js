@@ -45,11 +45,19 @@ async function loadJobs(category = '', location = '', tabCategory = '') {
 
     results.forEach(job => {
         const docId = `${job.id}_${userPhone.replace('+91', '')}`;
-        const hasApplied = localStorage.getItem(`applied_${docId}`) === "true";
 
-        const applyBtnHtml = hasApplied
-            ? `<button class="btn btn-success" disabled>Applied</button>`
-            : `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+        const currentlyInterviewing = job.currentlyInterviewing || [];
+        const isInQueue = currentlyInterviewing.includes(userPhone);
+        const isQueueFull = currentlyInterviewing.length > 0;
+
+        let applyBtnHtml;
+        if (isInQueue) {
+            applyBtnHtml = `<button class="btn btn-success" disabled>Already Applied</button>`;
+        } else if (isQueueFull) {
+            applyBtnHtml = `<button class="btn btn-warning" disabled>Booked</button>`;
+        } else {
+            applyBtnHtml = `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+        }
 
         const jobHtml = `
           <div class="job-item p-4 mb-4">
@@ -97,11 +105,20 @@ async function loadFeaturedJobs() {
     snapshot.forEach(doc => {
         const job = { id: doc.id, ...doc.data() };
         const docId = `${job.id}_${userPhone.replace('+91', '')}`;
-        const hasApplied = localStorage.getItem(`applied_${docId}`) === "true";
 
-        const applyBtnHtml = hasApplied
-            ? `<button class="btn btn-success" disabled>Applied</button>`
-            : `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+        const currentlyInterviewing = job.currentlyInterviewing || [];
+        const isInQueue = currentlyInterviewing.includes(userPhone);
+        const isQueueFull = currentlyInterviewing.length > 0;
+
+        let applyBtnHtml;
+        if (isInQueue) {
+            applyBtnHtml = `<button class="btn btn-success" disabled>Already Applied</button>`;
+        } else if (isQueueFull) {
+            applyBtnHtml = `<button class="btn btn-warning" disabled>Booked</button>`;
+        } else {
+            applyBtnHtml = `<a class="btn btn-primary apply-now-btn" data-id="${job.id}" data-phone="${job.whatsapp}" href="#">Apply Now</a>`;
+        }
+
 
         const jobHtml = `
           <div class="job-item p-4 mb-4">
@@ -236,16 +253,79 @@ let applyPhone = null;
 let applyJobId = null;
 
 function checkAndApply(jobId, phone) {
-    const isVerified = localStorage.getItem("isPhoneVerified");
-    if (isVerified === "true") {
-        window.open(`https://wa.me/${phone}`, "_blank");
-    } else {
-        applyPhone = phone;
-        applyJobId = jobId;
+    const isVerified = localStorage.getItem("isPhoneVerified") === "true";
+    const userPhone = localStorage.getItem("userPhone") || "";
+    const applicationDocId = `${jobId}_${userPhone.replace('+91', '')}`;
+    const hasApplied = localStorage.getItem(`applied_${applicationDocId}`) === "true";
+
+    applyPhone = phone;
+    applyJobId = jobId;
+
+    if (!isVerified) {
+        // 🔒 Not verified → show OTP modal
         const modal = new bootstrap.Modal(document.getElementById('otpModal'));
         modal.show();
+    } else if (!hasApplied) {
+        // ✅ Verified, but new job → run apply flow directly (simulate OTP success)
+        simulateVerifiedApplyFlow(userPhone);
+    } else {
+        // 🔁 Already applied → open WhatsApp
+        window.open(`https://wa.me/${phone}`, "_blank");
     }
 }
+
+async function simulateVerifiedApplyFlow(userPhone) {
+    const applicationDocId = `${applyJobId}_${userPhone.replace('+91', '')}`;
+    const applicationRef = db.collection("job_applications").doc(applicationDocId);
+
+    try {
+        // Save user if not exists
+        await db.collection("users").doc(userPhone).set({
+            phone: userPhone
+        }, { merge: true });
+
+        // Save application
+        await applicationRef.set({
+            jobId: applyJobId,
+            phone: userPhone,
+            appliedTo: applyPhone,
+            appliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: "scheduled"
+        });
+
+        // Update job's currentlyInterviewing list
+        await db.collection("jobs").doc(applyJobId).update({
+            currentlyInterviewing: firebase.firestore.FieldValue.arrayUnion(userPhone)
+        });
+
+        // Store in localStorage
+        localStorage.setItem(`applied_${applicationDocId}`, "true");
+
+        alert("✅ Application submitted successfully!");
+
+        // Open WhatsApp
+        window.open(`https://wa.me/${applyPhone}`, "_blank");
+
+        // Optional: Refresh the job list to update UI
+        loadFeaturedJobs(); // or loadJobs(...) depending on your flow
+
+    } catch (err) {
+        console.error("❌ Failed to apply:", err);
+        alert("Something went wrong. Please try again.");
+    }
+}
+
+// function checkAndApply(jobId, phone) {
+//     const isVerified = localStorage.getItem("isPhoneVerified");
+//     if (isVerified === "true") {
+//         window.open(`https://wa.me/${phone}`, "_blank");
+//     } else {
+//         applyPhone = phone;
+//         applyJobId = jobId;
+//         const modal = new bootstrap.Modal(document.getElementById('otpModal'));
+//         modal.show();
+//     }
+// }
 
 function sendOTP() {
     const number = "+91" + document.getElementById("phoneInput").value;
@@ -322,6 +402,9 @@ function verifyOTP() {
 
                 // 🔗 Open WhatsApp link
                 window.open(`https://wa.me/${applyPhone}`, "_blank");
+
+                // 🔄 Refresh the page to reflect applied status
+                window.location.reload();
 
             } catch (err) {
                 console.error("❌ Failed to save application:", err);
